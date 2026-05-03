@@ -1,7 +1,24 @@
 const express = require("express");
-const app = express();
+const OpenAI = require("openai");
 
+const app = express();
 app.use(express.json());
+
+// =========================
+// בדיקת API KEY (חשוב!)
+// =========================
+console.log("API KEY קיים?", !!process.env.OPENAI_API_KEY);
+
+// =========================
+// OpenAI setup
+// =========================
+let openai = null;
+
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 // =========================
 // בדיקת חיים
@@ -11,34 +28,33 @@ app.get("/", (req, res) => {
 });
 
 // =========================
-// פונקציית AI (חינמית fallback)
+// VOICE GET (בדיקה בדפדפן)
+// =========================
+app.get("/voice", (req, res) => {
+  res.send("voice עובד (GET)");
+});
+
+// =========================
+// פונקציית AI
 // =========================
 async function getAIResponse(text) {
-  // אם בעתיד תוסיף GPT – זה המקום
-
-  if (process.env.OPENAI_API_KEY) {
-    const OpenAI = require("openai");
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "אתה עוזר קולי קצר בעברית." },
-        { role: "user", content: text }
-      ]
-    });
-
-    return response.choices[0].message.content;
+  if (!openai) {
+    return "GPT לא מחובר כרגע. קיבלתי: " + text;
   }
 
-  // 🔵 מצב חינמי (בלי GPT)
-  return "קיבלתי את השאלה שלך: " + text;
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "ענה קצר וברור בעברית כמו דיבור אנושי." },
+      { role: "user", content: text }
+    ]
+  });
+
+  return response.choices[0].message.content;
 }
 
 // =========================
-// VOICE endpoint (לקו הטלפון)
+// VOICE POST (העיקרי)
 // =========================
 app.post("/voice", async (req, res) => {
   try {
@@ -46,24 +62,22 @@ app.post("/voice", async (req, res) => {
 
     const reply = await getAIResponse(text);
 
-    res.json({
-      reply: reply
-    });
+    res.json({ reply });
 
   } catch (err) {
     console.error(err);
 
     res.json({
-      reply: "יש בעיה בשרת כרגע"
+      reply: "שגיאה בשרת"
     });
   }
 });
 
 // =========================
-// הפעלה
+// הפעלת שרת
 // =========================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("AI Server running on port " + PORT);
+  console.log("Server running on port " + PORT);
 });
