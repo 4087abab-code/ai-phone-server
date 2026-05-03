@@ -1,5 +1,5 @@
 const express = require("express");
-const OpenAI = require("openai");
+const axios = require("axios");
 
 const app = express();
 app.use(express.json());
@@ -12,46 +12,48 @@ app.get("/", (req, res) => {
 });
 
 // =========================
-// OpenAI setup (בטוח)
-// =========================
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
-
-// =========================
 // פונקציית AI
 // =========================
 async function getAIResponse(text) {
-  if (!openai) {
+  if (!process.env.OPENAI_API_KEY) {
     return "GPT לא מחובר כרגע. קיבלתי: " + text;
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "ענה קצר וברור בעברית כמו בן אדם." },
-        { role: "user", content: text }
-      ]
-    });
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "ענה קצר וברור בעברית כמו בן אדם." },
+          { role: "user", content: text }
+        ]
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + process.env.OPENAI_API_KEY
+        }
+      }
+    );
 
-    return response.choices[0].message.content;
+    return response.data.choices[0].message.content;
 
   } catch (err) {
-    console.error(err);
+    console.error(err.response?.data || err.message);
     return "שגיאה מול GPT";
   }
 }
 
 // =========================
-// VOICE (GET בדיקה)
+// VOICE GET
 // =========================
 app.get("/voice", (req, res) => {
   res.send("voice עובד (GET)");
 });
 
 // =========================
-// VOICE (POST אמיתי)
+// VOICE POST
 // =========================
 app.post("/voice", async (req, res) => {
   const text = req.body.text || "";
