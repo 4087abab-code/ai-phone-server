@@ -5,22 +5,6 @@ const app = express();
 app.use(express.json());
 
 // =========================
-// בדיקת API KEY (חשוב!)
-// =========================
-console.log("API KEY קיים?", !!process.env.OPENAI_API_KEY);
-
-// =========================
-// OpenAI setup
-// =========================
-let openai = null;
-
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-}
-
-// =========================
 // בדיקת חיים
 // =========================
 app.get("/", (req, res) => {
@@ -28,11 +12,11 @@ app.get("/", (req, res) => {
 });
 
 // =========================
-// VOICE GET (בדיקה בדפדפן)
+// OpenAI setup (בטוח)
 // =========================
-app.get("/voice", (req, res) => {
-  res.send("voice עובד (GET)");
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // =========================
 // פונקציית AI
@@ -42,39 +26,43 @@ async function getAIResponse(text) {
     return "GPT לא מחובר כרגע. קיבלתי: " + text;
   }
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: "ענה קצר וברור בעברית כמו דיבור אנושי." },
-      { role: "user", content: text }
-    ]
-  });
-
-  return response.choices[0].message.content;
-}
-
-// =========================
-// VOICE POST (העיקרי)
-// =========================
-app.post("/voice", async (req, res) => {
   try {
-    const text = req.body.text || "";
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "ענה קצר וברור בעברית כמו בן אדם." },
+        { role: "user", content: text }
+      ]
+    });
 
-    const reply = await getAIResponse(text);
-
-    res.json({ reply });
+    return response.choices[0].message.content;
 
   } catch (err) {
     console.error(err);
-
-    res.json({
-      reply: "שגיאה בשרת"
-    });
+    return "שגיאה מול GPT";
   }
+}
+
+// =========================
+// VOICE (GET בדיקה)
+// =========================
+app.get("/voice", (req, res) => {
+  res.send("voice עובד (GET)");
 });
 
 // =========================
-// הפעלת שרת
+// VOICE (POST אמיתי)
+// =========================
+app.post("/voice", async (req, res) => {
+  const text = req.body.text || "";
+
+  const reply = await getAIResponse(text);
+
+  res.json({ reply });
+});
+
+// =========================
+// הפעלה
 // =========================
 const PORT = process.env.PORT || 3000;
 
