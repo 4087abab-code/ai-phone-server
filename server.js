@@ -3,38 +3,67 @@ const app = express();
 
 app.use(express.json());
 
-/* =========================
-   בדיקת חיים של השרת
-========================= */
+// =========================
+// בדיקת חיים
+// =========================
 app.get("/", (req, res) => {
-  res.send("השרת עובד!");
+  res.send("AI Server עובד!");
 });
 
-/* =========================
-   VOICE - GET (לפינגים ודפדפן)
-========================= */
-app.get("/voice", (req, res) => {
-  res.send("voice עובד (GET)");
+// =========================
+// פונקציית AI (חינמית fallback)
+// =========================
+async function getAIResponse(text) {
+  // אם בעתיד תוסיף GPT – זה המקום
+
+  if (process.env.OPENAI_API_KEY) {
+    const OpenAI = require("openai");
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "אתה עוזר קולי קצר בעברית." },
+        { role: "user", content: text }
+      ]
+    });
+
+    return response.choices[0].message.content;
+  }
+
+  // 🔵 מצב חינמי (בלי GPT)
+  return "קיבלתי את השאלה שלך: " + text;
+}
+
+// =========================
+// VOICE endpoint (לקו הטלפון)
+// =========================
+app.post("/voice", async (req, res) => {
+  try {
+    const text = req.body.text || "";
+
+    const reply = await getAIResponse(text);
+
+    res.json({
+      reply: reply
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.json({
+      reply: "יש בעיה בשרת כרגע"
+    });
+  }
 });
 
-/* =========================
-   VOICE - POST (בשביל שליחה אמיתית)
-========================= */
-app.post("/voice", (req, res) => {
-  const text = req.body.text || "לא נשלח טקסט";
-
-  console.log("הגיע:", text);
-
-  res.json({
-    reply: "קיבלתי: " + text
-  });
-});
-
-/* =========================
-   הפעלת השרת
-========================= */
+// =========================
+// הפעלה
+// =========================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log("AI Server running on port " + PORT);
 });
